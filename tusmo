@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Motus Multijoueur</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #000;
+            color: #fff;
+            text-align: center;
+            margin: 0;
+            padding: 0;
+        }
+        h1 {
+            color: #fff;
+        }
+        .container {
+            width: 80%;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        #mot-secret {
+            display: none;
+            margin-bottom: 20px;
+        }
+        #tentative-container {
+            margin-top: 20px;
+        }
+        .mot-result {
+            font-size: 18px;
+            margin-top: 10px;
+        }
+        .correct {
+            color: red; /* Rouge pour les lettres bien placées */
+            font-weight: bold;
+        }
+        .misplaced {
+            color: yellow; /* Jaune pour les lettres mal placées */
+            font-weight: bold;
+        }
+        .incorrect {
+            color: #fff; /* Lettres incorrectes en blanc */
+        }
+        .input-field {
+            padding: 10px;
+            width: 200px;
+            margin: 5px 0;
+            background-color: #222;
+            color: #fff;
+            border: 1px solid #fff;
+        }
+        .btn {
+            padding: 10px 20px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            cursor: pointer;
+            margin: 10px 0;
+        }
+        .btn:disabled {
+            background-color: #ccc;
+        }
+        .link-invitation {
+            margin-top: 20px;
+            color: lightblue;
+            text-decoration: underline;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+
+    <h1>Motus Multijoueur</h1>
+    <div class="container">
+        <div id="mot-secret-container">
+            <label for="mot-secret">Joueur, choisis un mot secret : </label>
+            <input type="password" id="mot-secret" class="input-field" placeholder="Mot secret">
+            <button class="btn" onclick="genererLien()">Générer lien d'invitation</button>
+            <p id="lien-invitation" class="link-invitation"></p>
+        </div>
+
+        <div id="tentative-container" style="display:none;">
+            <p id="instructions">Essaye de deviner le mot (la première lettre est affichée) :</p>
+            <input type="text" id="tentative" class="input-field" placeholder="Entrez votre tentative">
+            <button class="btn" id="bouton-tentative" onclick="verifierTentative()">Soumettre</button>
+            <div id="resultats"></div>
+        </div>
+
+        <div id="resultats-scores" style="display:none;">
+            <h2>Résultats</h2>
+            <p id="scores"></p>
+            <button class="btn" onclick="nouvellePartie()">Nouvelle Partie</button>
+        </div>
+    </div>
+
+    <script>
+        let motSecret = "";
+        let essaisRestants = 6;
+        let startTime;
+        const joueurs = ["Joueur1", "Joueur2", "Joueur3"];
+        let joueurIndex = 0;
+        const scores = { "Joueur1": 0, "Joueur2": 0, "Joueur3": 0 };
+
+        // Génère un lien d'invitation avec le mot secret encodé
+        function genererLien() {
+            motSecret = document.getElementById("mot-secret").value.toLowerCase();
+            if (motSecret.length > 0) {
+                const encodedMot = btoa(motSecret); // Encoder le mot secret en base64
+                const lien = `${window.location.origin}${window.location.pathname}?mot=${encodedMot}`;
+                document.getElementById("lien-invitation").innerHTML = `Invitez les autres joueurs avec ce lien : <a href="${lien}" target="_blank">${lien}</a>`;
+                document.getElementById("mot-secret-container").style.display = "none";
+                startTime = new Date();
+            } else {
+                alert("Le mot secret ne peut pas être vide.");
+            }
+        }
+
+        // Récupère les paramètres de l'URL
+        function getParametreUrl(param) {
+            const params = new URLSearchParams(window.location.search);
+            return params.get(param);
+        }
+
+        // Affiche le résultat de la tentative avec les indices (style Motus)
+        function afficherResultat(tentative) {
+            let resultat = `<span class="correct">[${motSecret[0]}]</span>`; // Affiche toujours la première lettre en rouge
+            for (let i = 1; i < tentative.length; i++) {
+                if (tentative[i] === motSecret[i]) {
+                    resultat += `<span class="correct">[${tentative[i]}]</span>`;
+                } else if (motSecret.includes(tentative[i])) {
+                    resultat += `<span class="misplaced">(${tentative[i]})</span>`;
+                } else {
+                    resultat += `<span class="incorrect">${tentative[i]}</span>`;
+                }
+            }
+            return resultat;
+        }
+
+        // Vérifie la tentative du joueur
+        function verifierTentative() {
+            const tentative = document.getElementById("tentative").value.toLowerCase();
+            if (tentative.length !== motSecret.length) {
+                alert(`Le mot doit contenir ${motSecret.length} lettres.`);
+                return;
+            }
+
+            essaisRestants--;
+            const resultat = afficherResultat(tentative);
+            document.getElementById("resultats").innerHTML += `<p class="mot-result">${resultat}</p>`;
+
+            if (tentative === motSecret) {
+                const tempsTotal = (new Date() - startTime) / 1000;
+                const points = Math.max(0, (6 - essaisRestants) * 10 - Math.floor(tempsTotal));
+                scores[joueurs[joueurIndex]] += points;
+                afficherScores();
+            } else if (essaisRestants <= 0) {
+                alert("Dommage, vous n'avez pas trouvé le mot.");
+                afficherScores();
+            }
+
+            document.getElementById("tentative").value = "";
+        }
+
+        // Affiche les scores à la fin de la partie
+        function afficherScores() {
+            document.getElementById("tentative-container").style.display = "none";
+            document.getElementById("resultats-scores").style.display = "block";
+
+            let scoreHTML = "";
+            for (const joueur in scores) {
+                scoreHTML += `${joueur} : ${scores[joueur]} points<br>`;
+            }
+            document.getElementById("scores").innerHTML = scoreHTML;
+        }
+
+        // Lancement d'une nouvelle partie
+        function nouvellePartie() {
+            joueurIndex = (joueurIndex + 1) % joueurs.length;
+            essaisRestants = 6;
+            motSecret = "";
+            document.getElementById("mot-secret-container").style.display = "block";
+            document.getElementById("tentative-container").style.display = "none";
+            document.getElementById("resultats-scores").style.display = "none";
+            document.getElementById("resultats").innerHTML = "";
+            document.getElementById("mot-secret").value = "";
+        }
+
+        // Démarre le jeu si un mot est passé dans l'URL
+        window.onload = function () {
+            const encodedMot = getParametreUrl("mot");
+            if (encodedMot) {
+                motSecret = atob(encodedMot); // Décoder le mot secret en base64
+                document.getElementById("mot-secret-container").style.display = "none";
+                document.getElementById("tentative-container").style.display = "block";
+                startTime = new Date();
+            }
+        }
+    </script>
+
+</body>
+</html>
